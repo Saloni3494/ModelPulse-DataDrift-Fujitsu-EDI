@@ -1,0 +1,93 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Environment variables & secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.cert
+
+# Datasets and raw data files
+data/
+*.csv
+*.tsv
+*.parquet
+*.jsonl
+
+# ML Models and heavy artifacts
+ml/artifacts/
+*.pkl
+*.joblib
+*.model
+*.h5
+*.pt
+*.pth
+*.onnx
+
+# MLflow & Experiment Tracking
+mlruns/
+mlflow.db
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Databases & runtime volumes
+*.sqlite3
+*.db
+pgdata/
+timescale_data/
+kafka_data/
+zookeeper_data/
+
+# Generated reports & logs
+reports/
+logs/
+*.log
+
+# OS & Editor files
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/
+*.sublime-workspace
+*.sublime-project
+
+# Reference repositories (isolated with their own Git trees and dependencies)
+references/Sentinel/
+references/mlops-drift-detection-platform/

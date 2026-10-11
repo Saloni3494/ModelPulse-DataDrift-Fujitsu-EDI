@@ -1,0 +1,2 @@
+# ModelPulse root requirements
+-r backend/requirements.txt
