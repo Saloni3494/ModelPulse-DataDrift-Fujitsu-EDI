@@ -23,9 +23,9 @@ class Settings(BaseSettings):
 
     # Database (PostgreSQL + TimescaleDB & Local Fallback)
     DATABASE_URL: str = (
-        "postgresql+asyncpg://modelpulse:modelpulse_password@localhost:5432/modelpulse_db"
+         "postgresql+asyncpg://modelpulse:change_me@localhost:5432/modelpulse"
     )
-    PERSISTENCE_TYPE: str = "in_memory"  # 'in_memory', 'sqlite', 'timescaledb'
+    PERSISTENCE_TYPE: str = "timescaledb"  # 'in_memory', 'sqlite', 'timescaledb'
     SQLITE_DB_PATH: str = "data/modelpulse.db"
 
     # Kafka Streaming (Phase 5)

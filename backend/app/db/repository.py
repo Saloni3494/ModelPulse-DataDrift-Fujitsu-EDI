@@ -727,27 +727,53 @@ class SQLiteMonitoringRepository(MonitoringRepository):
 _active_repository: Optional[MonitoringRepository] = None
 
 
-def get_monitoring_repository() -> MonitoringRepository:
-    """Return active monitoring repository singleton."""
-    global _active_repository
-    if _active_repository is not None and isinstance(_active_repository, SQLiteMonitoringRepository):
-        try:
-            with _active_repository._lock:
-                _active_repository._conn.execute("SELECT 1;")
-        except (sqlite3.ProgrammingError, sqlite3.OperationalError):
-            _active_repository = None
 
-    if _active_repository is None:
-        try:
-            from backend.app.core.config import get_settings
-            settings = get_settings()
-            if settings.PERSISTENCE_TYPE == "sqlite":
-                _active_repository = SQLiteMonitoringRepository(settings.SQLITE_DB_PATH)
-            else:
-                _active_repository = InMemoryMonitoringRepository()
-        except Exception:
-            _active_repository = InMemoryMonitoringRepository()
+def get_monitoring_repository() -> MonitoringRepository:
+    """Return the configured monitoring repository singleton."""
+    global _active_repository
+
+    if _active_repository is not None:
+        if isinstance(_active_repository, SQLiteMonitoringRepository):
+            try:
+                with _active_repository._lock:
+                    _active_repository._conn.execute("SELECT 1;")
+            except (sqlite3.ProgrammingError, sqlite3.OperationalError):
+                _active_repository = None
+
+        if _active_repository is not None:
+            return _active_repository
+
+    from backend.app.core.config import get_settings
+
+    settings = get_settings()
+    persistence_type = settings.PERSISTENCE_TYPE.strip().lower()
+
+    
+    if persistence_type == "in_memory":
+        _active_repository = InMemoryMonitoringRepository()
+
+    elif persistence_type == "sqlite":
+        _active_repository = SQLiteMonitoringRepository(
+            settings.SQLITE_DB_PATH
+        )
+
+    elif persistence_type == "timescaledb":
+        from backend.app.db.postgres_repository import (
+            PostgreSQLMonitoringRepository,
+        )
+
+        _active_repository = PostgreSQLMonitoringRepository(
+            settings.DATABASE_URL
+        )
+
+    else:
+        raise ValueError(
+            f"Unsupported PERSISTENCE_TYPE: {settings.PERSISTENCE_TYPE!r}"
+        )
+
     return _active_repository
+
+
 
 
 def set_monitoring_repository(repo: MonitoringRepository) -> None:
