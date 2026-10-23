@@ -395,12 +395,18 @@ class MicroBatcher:
         )
 
         logger.info(
-            f"[Batcher] Completed micro-batch {batch.batch_id}: "
-            f"received={received_count} valid={valid_count} quar={quarantined_count} "
-            f"dup={batch.duplicate_count} dlq={batch.dlq_count} "
-            f"monitoring_run_id={run_response.run_id} status={status}"
-        )
+    f"[Batcher] Completed micro-batch {batch.batch_id}: "
+    f"received={received_count} valid={valid_count} quar={quarantined_count} "
+    f"dup={batch.duplicate_count} dlq={batch.dlq_count} "
+    f"monitoring_run_id={run_response.run_id} status={status}"
+    )
 
+# Record successful batch processing.
+        self.metrics.record_batch_completed(
+         duration_ms=duration_ms,
+         status="completed",
+        )
+        
         self._flushed_windows.add((batch.window_start, batch.window_end))
         return meta, run_response
 

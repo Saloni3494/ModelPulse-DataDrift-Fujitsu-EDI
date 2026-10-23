@@ -1,104 +1,224 @@
-"""ModelPulse Run Details Component (Phase 6).
-Displays deep-dive diagnostics for an individual monitoring run:
-- Event-time vs ingestion-time vs evaluation window.
-- Sample sizes, valid vs quarantined counts.
-- Data-quality findings.
-- Performance degradation observations (clearly distinguishing delayed labels from zero performance).
-"""
+"""ModelPulse — compact diagnostics for a selected monitoring run."""
+
+from datetime import datetime
+from html import escape
 from typing import Any, Dict, Optional
-import pandas as pd
+
 import streamlit as st
 
-from dashboard.components.styles import severity_badge, status_badge
+OK = "#34d399"
+WARN = "#fbbf24"
+CRIT = "#f87171"
+ACCENT = "#3d9bff"
 
 
-def render_run_details(run: Optional[Dict[str, Any]]):
-    """Render comprehensive diagnostic view for an individual monitoring run."""
-    if not run:
-        st.info("Select a monitoring run from History or Overview to inspect detailed diagnostics.")
+# =========================================================
+# HELPERS
+# =========================================================
+
+def _safe_text(value: Any, fallback: str = "—") -> str:
+    if value is None or str(value).strip() == "":
+        return fallback
+    return str(value)
+
+
+def _safe_number(value: Any) -> Optional[float]:
+    try:
+        return float(value) if value is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _format_date(value: Any) -> str:
+    if not value:
+        return "—"
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        return parsed.strftime("%d %b %Y, %H:%M")
+    except (ValueError, TypeError):
+        return str(value)
+
+
+def _display_count(value: Any) -> str:
+    number = _safe_number(value)
+    return "—" if number is None else f"{number:,.0f}"
+
+
+def _rgba(hex_color: str, alpha: float) -> str:
+    h = hex_color.lstrip("#")
+    r, g, b = (int(h[i:i + 2], 16) for i in (0, 2, 4))
+    return f"rgba({r},{g},{b},{alpha})"
+
+
+def _status_color(status: str) -> str:
+    s = status.lower()
+    if s in ("ok", "healthy", "completed", "delivered"):
+        return OK
+    if s in ("failed", "error", "quality_failure"):
+        return CRIT
+    return WARN
+
+
+def _kpi(label: str, value: str, sub: str, accent: str, icon: str,
+         fill: float = 100.0) -> str:
+    fill = max(4.0, min(100.0, fill))
+    return f"""
+    <div class="mp-kpi-modern"
+         style="--kpi-accent:{accent};--kpi-soft:{_rgba(accent, .14)}">
+        <div class="mp-kpi-top">
+            <span class="mp-kpi-label">{escape(label)}</span>
+            <span class="mp-kpi-icon">{icon}</span>
+        </div>
+        <div class="mp-kpi-value">{escape(value)}</div>
+        <div class="mp-kpi-subtitle">{escape(sub)}</div>
+        <div class="mp-kpi-track">
+            <div class="mp-kpi-track-fill" style="width:{fill:.0f}%;background:{accent}"></div>
+        </div>
+    </div>
+    """
+
+
+def _section(title: str, caption: str = "") -> None:
+    cap = f'<div class="mp-section-caption">{escape(caption)}</div>' if caption else ""
+    st.markdown(
+        f'<div class="mp-section-heading">{escape(title)}</div>{cap}',
+        unsafe_allow_html=True,
+    )
+
+
+# =========================================================
+# PAGE
+# =========================================================
+
+def render_run_details(run: Dict[str, Any]) -> None:
+    """Render concise diagnostics for one monitoring run."""
+
+    if not isinstance(run, dict) or not run:
+        st.warning("No monitoring run is available. Select a run from history.")
         return
 
-    st.subheader(f"Run Diagnostics: `{run.get('run_id')}`")
+    run_id = _safe_text(run.get("run_id"))
+    model_name = _safe_text(run.get("model_name"))
+    version = _safe_text(run.get("model_version"))
+    status = _safe_text(run.get("status"), "Unknown")
+    run_type = _safe_text(run.get("run_type"), "Unknown")
+    status_color = _status_color(status)
 
-    # Header Card
-    sev = run.get("severity", {})
-    score = sev.get("score", 0)
-    band = sev.get("band", "Low")
-
-    col_h1, col_h2, col_h3, col_h4 = st.columns(4)
-    with col_h1:
-        st.metric("Composite Severity", f"{score}/100", delta=band)
-    with col_h2:
-        st.metric("Total Evaluation Samples", run.get("sample_count", 0))
-    with col_h3:
-        st.metric("Valid Scored Records", run.get("valid_sample_count", "N/A"))
-    with col_h4:
-        st.metric("Quarantined Records", run.get("quarantined_sample_count", 0))
-
-    st.markdown("---")
-
-    # 1. Temporal & Window Specifications
-    st.markdown("#### 1. Temporal Coordinates & Time Semantics")
-    st.caption(
-        "ModelPulse strictly separates **Event Time** (transaction generation), "
-        "**Ingestion Time** (Kafka broker arrival), and **Monitoring Window** (5-minute micro-batch evaluation bounds)."
+    # ---------------- Header ----------------
+    st.markdown(
+        f"""
+        <div class="mp-page-header">
+            <div>
+                <div class="mp-eyebrow">ModelPulse / Run Diagnostics</div>
+                <div class="mp-page-title">Execution Details</div>
+                <p class="mp-page-sub">
+                    {escape(model_name)} · Version {escape(version)}
+                    &nbsp;·&nbsp; <span style="font-family:var(--mp-mono);
+                    color:var(--mp-accent)">{escape(run_id)}</span>
+                </p>
+            </div>
+            <span class="mp-pill"
+                  style="color:{status_color};border-color:{status_color};
+                         background:{_rgba(status_color, .10)}">
+                {escape(status.upper())}
+            </span>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
-    cur_win = run.get("current_window", {})
-    ref_win = run.get("reference_window", {})
+    # ---------------- Summary ----------------
+    total = _safe_number(run.get("sample_count"))
+    valid = _safe_number(run.get("valid_sample_count"))
+    quarantined = _safe_number(run.get("quarantined_sample_count"))
 
-    t_cols = st.columns(3)
-    with t_cols[0]:
-        st.write("**Evaluation Window Start:**")
-        st.code(str(cur_win.get("start", run.get("created_at"))))
-    with t_cols[1]:
-        st.write("**Evaluation Window End:**")
-        st.code(str(cur_win.get("end", run.get("created_at"))))
-    with t_cols[2]:
-        st.write("**Execution Timestamp (UTC):**")
-        st.code(str(run.get("created_at")))
+    st.markdown("<div class='mp-section-spacer'></div>", unsafe_allow_html=True)
 
-    # 2. Data Quality & Quarantine Findings
-    st.markdown("#### 2. Data Quality & Feature Quarantine Analysis")
-    q_count = run.get("quarantined_sample_count", 0)
-    if q_count > 0:
-        st.warning(
-            f"⚠️ **{q_count} record(s) isolated from model inference.** "
-            "Invalid or out-of-bounds features were quarantined to protect model scoring and statistical distributions from corrupted inputs."
-        )
-    else:
-        st.success("✅ **Zero records quarantined.** All incoming evaluation records satisfied required schema and domain bounds.")
+    cards = [
+        _kpi("Execution status", status.upper(), "Reported by backend",
+             status_color, "◉"),
+        _kpi("Run type", run_type.replace("_", " ").title(),
+             "Execution source", ACCENT, "▤"),
+        _kpi("Total samples", _display_count(total),
+             "Received in this run", ACCENT, "⌁"),
+    ]
+    for column, card in zip(st.columns(3, gap="small"), cards):
+        with column:
+            st.markdown(card, unsafe_allow_html=True)
 
-    # 3. Model Performance vs Data Drift
-    st.markdown("#### 3. Model Performance Evaluation (Component M)")
-    st.info(
-        "ℹ️ **Performance Degradation vs Data Drift Distinction:** "
-        "Statistical data drift measures covariate distribution shift between reference and current inference traffic. "
-        "Actual model performance metrics (e.g. PR-AUC degradation) can **only** be evaluated when ground-truth fraud labels are confirmed. "
-        "In production financial systems, fraud feedback is inherently delayed (30–90 days chargeback cycle)."
+    # ---------------- Metadata ----------------
+    _section("Execution metadata", "Identifiers and timing for this run.")
+
+    metadata = [
+        ("Model", model_name),
+        ("Model version", version),
+        ("Created at", _format_date(run.get("created_at"))),
+        ("Run ID", run_id),
+        ("Execution status", status),
+        ("Execution type", run_type),
+    ]
+    items = "".join(
+        f'<div class="mp-meta-item"><span>{escape(label)}</span>'
+        f"<strong>{escape(str(value))}</strong></div>"
+        for label, value in metadata
+    )
+    st.markdown(
+        f'<div class="mp-modern-panel" style="padding:12px 14px">'
+        f'<div class="mp-panel-topline"></div>'
+        f'<div class="mp-panel-label">RUN METADATA</div>'
+        f'<div class="mp-meta-grid">{items}</div></div>',
+        unsafe_allow_html=True,
     )
 
-    comp_m = sev.get("components", {}).get("M")
-    if comp_m is not None:
-        st.metric("Observed Component M (PR-AUC Drop)", f"{comp_m:.2f}/100")
-    else:
+    # ---------------- Data validation ----------------
+    _section("Data validation", "How received samples were classified.")
+
+    q_pct = (quarantined / total * 100) if total and quarantined is not None else 0.0
+    v_pct = (valid / total * 100) if total and valid is not None else 0.0
+
+    cards = [
+        _kpi("Received", _display_count(total), "Total input samples",
+             ACCENT, "▤"),
+        _kpi("Valid", _display_count(valid),
+             f"{v_pct:.1f}% of received" if total else "—", OK, "✓", v_pct),
+        _kpi("Quarantined", _display_count(quarantined),
+             f"{q_pct:.1f}% of received" if total else "—", WARN, "◇", q_pct),
+    ]
+    for column, card in zip(st.columns(3, gap="small"), cards):
+        with column:
+            st.markdown(card, unsafe_allow_html=True)
+
+    if total and valid is not None and quarantined is not None:
+        unaccounted = max(0.0, 100.0 - v_pct - q_pct)
         st.markdown(
-            """
-            <div style="background-color: rgba(30, 41, 59, 0.7); border: 1px dashed #64748b; padding: 12px 16px; border-radius: 6px;">
-                <strong>Performance Metrics Status:</strong> <span style="color: #94a3b8;">Unavailable (Delayed Ground-Truth Labels)</span><br>
-                <span style="font-size: 0.85rem; color: #94a3b8;">
-                    No verified ground-truth labels accompanied this micro-batch.
-                    ModelPulse dynamically renormalizes component weights across available evidence (D, P, Q) rather than assuming zero performance impact.
-                </span>
+            f"""
+            <div class="mp-modern-panel" style="padding:12px 14px;margin-top:8px">
+                <div class="mp-panel-label">SAMPLE DISTRIBUTION</div>
+                <div class="mp-stackbar">
+                    <div style="width:{min(v_pct, 100):.2f}%;background:{OK}"></div>
+                    <div style="width:{min(q_pct, 100):.2f}%;background:{WARN}"></div>
+                    <div style="width:{unaccounted:.2f}%;background:{CRIT}"></div>
+                </div>
+                <div class="mp-legend">
+                    <span><i style="background:{OK}"></i>Valid {v_pct:.1f}%</span>
+                    <span><i style="background:{WARN}"></i>Quarantined {q_pct:.1f}%</span>
+                    <span><i style="background:{CRIT}"></i>Unaccounted {unaccounted:.1f}%</span>
+                </div>
             </div>
             """,
             unsafe_allow_html=True,
         )
 
-    # 4. Recommendations
-    recs = run.get("recommendations", [])
-    if recs:
-        st.markdown("---")
-        st.markdown("#### 4. Engine Automated Recommendations")
-        for r in recs:
-            st.markdown(f"- 💡 {r}")
+        if valid + quarantined != total:
+            st.info(
+                "The reported sample counts do not reconcile exactly. "
+                "Review the backend response before drawing conclusions."
+            )
+
+    st.caption(
+        "Counts and metadata are reported by the monitoring backend. "
+        "Unavailable values are shown as —."
+    )
+
+    with st.expander("Inspect raw run payload"):
+        st.json(run)

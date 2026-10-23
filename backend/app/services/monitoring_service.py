@@ -105,17 +105,25 @@ class MonitoringService:
             )
         return self._reference_df.copy(deep=True)
 
+    
     def _get_reference_scores(self) -> Tuple[np.ndarray, float]:
-        """Compute or return cached model scores and predicted positive rate on reference data."""
-        if self._reference_scores is None:
-            ref_df = self.get_reference_data()
-            if not self.model_service._loaded:
-                self.model_service.load_artifacts()
-            probas = self.model_service.pipeline.predict_proba(ref_df)
-            self._reference_scores = probas[:, 1]
-            tau = self.model_service.optimal_threshold
-            self._ref_ppr = float((self._reference_scores >= tau).sum() / len(self._reference_scores))
-        return self._reference_scores, self._ref_ppr
+      """Compute or return cached model scores and predicted positive rate."""
+      if self._reference_scores is None:
+        ref_df = self.get_reference_data()
+
+        if not self.model_service._loaded or self.model_service.pipeline is None:
+            self.model_service.load_artifacts()
+
+        probas = self.model_service.pipeline.predict_proba(ref_df)
+        self._reference_scores = probas[:, 1]
+
+        tau = self.model_service.optimal_threshold
+        self._ref_ppr = float(
+            (self._reference_scores >= tau).sum()
+            / len(self._reference_scores)
+        )
+      return self._reference_scores, self._ref_ppr
+
 
     def execute_monitoring_run(
         self, request: MonitoringRunRequest, persist: bool = True
@@ -514,6 +522,8 @@ class MonitoringService:
             )
 
         try:
+            if not self.model_service._loaded or self.model_service.pipeline is None:
+                self.model_service.load_artifacts()
             cur_probas = self.model_service.pipeline.predict_proba(clean_cur_df)
             cur_scores = cur_probas[:, 1]
             tau = self.model_service.optimal_threshold
@@ -550,17 +560,27 @@ class MonitoringService:
                 ),
                 comp_p,
             )
+        
+        
+       
         except Exception:
+            logger.exception("Prediction drift evaluation failed")
+
+            recommendations.append(
+              "Prediction drift evaluation unavailable. Check server logs for details."
+              )
+
             return (
-                PredictionDriftSummary(
-                    metric="psi",
-                    value=None,
-                    threshold=0.25,
-                    drifted=False,
-                    status="unavailable",
-                ),
-                None,
-            )
+            PredictionDriftSummary(
+            metric="psi",
+            value=None,
+            threshold=0.25,
+            drifted=False,
+            status="unavailable",
+        ),
+        None,
+    )
+
 
     def _evaluate_performance_degradation(
         self,
@@ -592,6 +612,8 @@ class MonitoringService:
                 self.model_service.metrics.get("val_metrics", {}).get("pr_auc", 0.7556)
             )
             # Predict scores on current records
+            if not self.model_service._loaded or self.model_service.pipeline is None:
+                self.model_service.load_artifacts()
             cur_probas = self.model_service.pipeline.predict_proba(clean_cur_df)
             cur_scores = cur_probas[:, 1]
 
