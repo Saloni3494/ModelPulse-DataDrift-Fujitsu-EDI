@@ -100,6 +100,7 @@ async def health_check():
         "model_version": model_version,
     }
 
+@app.post("/monitoring/streaming/replay", tags=["streaming"])
 @app.post("/monitoring/replay", tags=["streaming"])
 async def replay_stream(request: ReplayRequest):
     # Reuse the exact bus instance connected to the running consumer.
@@ -123,6 +124,7 @@ async def replay_stream(request: ReplayRequest):
 
     return result
 
+@app.post("/monitoring/streaming/flush", tags=["streaming"])
 @app.post("/monitoring/flush", tags=["streaming"])
 async def flush_stream():
     """Flush buffered streaming events and run monitoring."""

@@ -15,6 +15,7 @@ from dashboard.components.history import render_history
 from dashboard.components.overview import render_overview
 from dashboard.components.run_details import render_run_details
 from dashboard.components.severity_breakdown import render_severity_breakdown
+from dashboard.components.simulator_view import render_simulator_view
 from dashboard.components.streaming_health import render_streaming_health
 from dashboard.components.styles import CUSTOM_CSS
 
@@ -217,13 +218,19 @@ NAVIGATION = {
         "description": "Inspect notification readiness and delivery history.",
         "group": "OPERATIONS",
     },
+    "simulator": {
+        "label": "⚡  Simulator",
+        "title": "Drift & Stress Simulator",
+        "description": "Benchmark synthetic drift scenarios, stress-test pipeline, and replay events.",
+        "group": "OPERATIONS",
+    },
 }
 
 LABEL_TO_PAGE = {page["label"]: page_id for page_id, page in NAVIGATION.items()}
 
 # Pages that already draw their own restyled header. The remaining pages
 # get a shared header below until they are restyled too.
-PAGES_WITH_OWN_HEADER = {"overview", "history", "diagnostics", "drift"}
+PAGES_WITH_OWN_HEADER = {"overview", "history", "diagnostics", "drift", "simulator"}
 
 
 # =========================================================
@@ -456,7 +463,7 @@ elif selected_page == "severity":
 
 
 elif selected_page == "telemetry":
-    render_streaming_health(streaming_health)
+    render_streaming_health(streaming_health, client=client)
 
 
 elif selected_page == "alerting":
@@ -464,6 +471,10 @@ elif selected_page == "alerting":
         alert_status=alert_status,
         recent_alerts=recent_alerts,
     )
+
+
+elif selected_page == "simulator":
+    render_simulator_view(client.api_base_url)
 
 
 # =========================================================

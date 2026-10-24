@@ -207,7 +207,11 @@ def _reconciliation_rows(reconciliation: Dict[str, Any]) -> List[Tuple[str, str]
 # PAGE
 # =========================================================
 
-def render_streaming_health(streaming_health: Optional[Dict[str, Any]] = None) -> None:
+def render_streaming_health(
+    streaming_health: Optional[Dict[str, Any]] = None,
+    client: Optional[Any] = None,
+    **kwargs: Any,
+) -> None:
     """Render ingestion, processing, reconciliation and configuration."""
 
     st.markdown(_CSS, unsafe_allow_html=True)
@@ -323,7 +327,53 @@ def render_streaming_health(streaming_health: Optional[Dict[str, Any]] = None) -
             unsafe_allow_html=True,
         )
 
-    # ---------------- 04 Configuration ----------------
+    # ---------------- 04 Stream Simulation Controls ----------------
+    _section("Stream simulation controls", "Trigger synthetic stream replay and manual micro-batch execution.")
+    c1, c2, c3 = st.columns(3)
+    api_url = getattr(client, "api_base_url", "http://localhost:8000") if client else "http://localhost:8000"
+
+    with c1:
+        if st.button("🌊 Replay 50 Normal Events", key="sh_btn_rep_norm", use_container_width=True):
+            try:
+                import httpx
+                resp = httpx.post(f"{api_url}/monitoring/streaming/replay", json={"scenario_id": "no_drift", "n_samples": 50})
+                if resp.status_code == 200:
+                    st.success(f"Published {resp.json().get('published_count')} normal events!")
+                    st.rerun()
+                else:
+                    st.error(f"Replay error: {resp.text}")
+            except Exception as e:
+                st.error(f"Error: {e}")
+
+    with c2:
+        if st.button("⚡ Replay 50 Drifted Events", key="sh_btn_rep_drift", use_container_width=True):
+            try:
+                import httpx
+                resp = httpx.post(f"{api_url}/monitoring/streaming/replay", json={"scenario_id": "numeric_mean_variance_shift", "n_samples": 50})
+                if resp.status_code == 200:
+                    st.success(f"Published {resp.json().get('published_count')} drifted events!")
+                    st.rerun()
+                else:
+                    st.error(f"Replay error: {resp.text}")
+            except Exception as e:
+                st.error(f"Error: {e}")
+
+    with c3:
+        if st.button("📦 Flush Pending Micro-Batch", key="sh_btn_flush_mb", use_container_width=True):
+            try:
+                import httpx
+                resp = httpx.post(f"{api_url}/monitoring/streaming/flush")
+                if resp.status_code == 200:
+                    st.info(f"Flushed micro-batch! Batch ID: {resp.json().get('batch_id')}")
+                    st.rerun()
+                else:
+                    st.error(f"Flush error: {resp.text}")
+            except Exception as e:
+                st.error(f"Error: {e}")
+
+    st.markdown("<div class='mp-section-spacer'></div>", unsafe_allow_html=True)
+
+    # ---------------- 05 Configuration ----------------
     _section("Micro-batching configuration", "Reference settings documented by the implementation.")
 
     items = "".join(

@@ -580,10 +580,10 @@ div[data-testid="stVerticalBlockBorderWrapper"]:hover {
 # =========================================================
 
 _SEVERITY_COLORS = {
-    "low": ("#34d399", "rgba(52,211,153,.10)"),
-    "moderate": ("#fbbf24", "rgba(251,191,36,.10)"),
-    "high": ("#fb923c", "rgba(251,146,60,.10)"),
-    "critical": ("#f87171", "rgba(248,113,113,.12)"),
+    "low": ("#10b981", "rgba(16,185,129,.15)"),
+    "moderate": ("#f59e0b", "rgba(245,158,11,.15)"),
+    "high": ("#f97316", "rgba(249,115,22,.15)"),
+    "critical": ("#ef4444", "rgba(239,68,68,.15)"),
 }
 
 
@@ -592,7 +592,7 @@ def severity_badge(band: str, score: Optional[int] = None) -> str:
     normalized = label.lower()
     css_class = f"badge-{normalized}" if normalized in _SEVERITY_COLORS else "badge-low"
     color, background = _SEVERITY_COLORS.get(normalized, ("#9aa7bb", "rgba(154,167,187,.10)"))
-    score_text = f" · {score}" if score is not None else ""
+    score_text = f" ({score})" if score is not None else ""
 
     return (
         f'<span class="badge {css_class}" style="color:{color};'
@@ -608,9 +608,9 @@ def status_badge(status: str) -> str:
     label = (status or "unknown").strip()
     normalized = label.lower()
 
-    ok = ("#34d399", "rgba(52,211,153,.10)")
-    bad = ("#f87171", "rgba(248,113,113,.12)")
-    warn = ("#fbbf24", "rgba(251,191,36,.10)")
+    ok = ("#10b981", "rgba(16,185,129,.15)")
+    bad = ("#ef4444", "rgba(239,68,68,.15)")
+    warn = ("#f59e0b", "rgba(245,158,11,.15)")
 
     styles = {
         "ok": ok, "healthy": ok, "completed": ok, "delivered": ok,
